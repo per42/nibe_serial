@@ -1,0 +1,83 @@
+<!--SYS Config-->
+<SYS key='User' value='admin'>
+<SYS key='Password' value='fantomen'>
+<SYS key='DHCP' value='Enable'>
+<SYS key='Ip Address' value='10.10.100.10'>
+<SYS key='GateWay' value='10.10.100.254'>
+<SYS key='Mask' value='255.255.255.0'>
+<SYS key='Host Name' value='EW11'>
+<SYS key='DNS' value='223.5.5.5'>
+<SYS key='Telnet' value='Enable'>
+<SYS key='Telnet Port' value='23'>
+<SYS key='Echo' value='Enable'>
+<SYS key='Web' value='Enable'>
+<SYS key='Web Port' value='80'>
+<SYS key='Ipv6' value='Disable'>
+<SYS key='Ipv6 address' value=''>
+<SYS key='Ipv6 DHCP' value='Disable'>
+<SYS key='NTP' value='Enable'>
+<SYS key='NTP Server' value='pool.ntp.org'>
+<SYS key='NTP Port' value='0'>
+<SYS key='NTP GMT' value='1'>
+<SYS key='Customer ID' value='EW11'>
+<SYS key='Config Version' value='0'>
+<SYS key='NetworkMode' value='Router'>
+<SYS key='WiFiMode' value='STA'>
+<SYS key='WiFiAPSSID' value='EW11_E2DE'>
+<SYS key='WiFiAPKey' value=''>
+<SYS key='WiFiSTASSID' value='skynet'>
+<SYS key='WiFiSTAKey' value='0grodan0'>
+<SYS key='WiFiAPCH' value='0'>
+<SYS key='WiFiHideSSID' value='0'>
+<SYS key='WiFiRoamingEn' value='0'>
+<SYS key='ScanRSSIThreshold' value='0'>
+<SYS key='ConnectRSSIThreshold' value='0'>
+<SYS key='LanIpAddress' value='10.10.100.254'>
+<SYS key='LanMarsk' value='255.255.255.0'>
+<SYS key='LanDhcpEn' value='Enable'>
+<SYS key='EthernetMode' value='WAN'>
+<SYS key='Longitude' value='0.000000'>
+<SYS key='Latitude' value='0.000000'>
+<SYS key='SmartConfig' value='SmartLink'>
+<SYS key='ModbusTime' value='0'>
+
+<!--UART Config-->
+<UART key='Baudrate' value='9600'>
+<UART key='Databits' value='8'>
+<UART key='Stopbits' value='1'>
+<UART key='Parity' value='NONE'>
+<UART key='FlowCtrl' value='Disable'>
+<UART key='Software FlowCtrl' value='Disable'>
+<UART key='Xon' value='11'>
+<UART key='Xoff' value='13'>
+<UART key='Protocol' value='NONE'>
+<UART key='Frame Length' value='16'>
+<UART key='Frame Time' value='100'>
+<UART key='Tag Enable' value='Disable'>
+<UART key='Tag Head' value='00'>
+<UART key='Tag Tail' value='00'>
+<UART key='Buffer Size' value='512'>
+<UART key='gapTime Size' value='50'>
+<UART key='cliGetin' value='0'>
+<UART key='serialStr' value='+++'>
+<UART key='waitTime' value='300'>
+
+<!--SOCK Config-->
+<SOCK name='UDP' key='Name' value='UDP'>
+<SOCK name='UDP' key='Protocol' value='UDP-CLIENT'>
+<SOCK name='UDP' key='Server Addr' value=''>
+<SOCK name='UDP' key='Remote Port' value='9999'>
+<SOCK name='UDP' key='Local Port' value='0'>
+<SOCK name='UDP' key='Buffer Size' value='512'>
+<SOCK name='UDP' key='KeepAlive' value='60'>
+<SOCK name='UDP' key='Timeout' value='0'>
+<SOCK name='UDP' key='Security' value='NONE'>
+<SOCK name='UDP' key='HeartBeat' value='Disable'>
+<SOCK name='UDP' key='Regist Mode' value='Disable'>
+<SOCK name='UDP' key='Regist Code' value=''>
+<SOCK name='UDP' key='Connect Mode' value='Always'>
+<SOCK name='UDP' key='VcomEn' value='0'>
+<SOCK name='UDP' key='Rout' value='uart'>
+
+<!--CRC Config-->
+<CRC key='CheckNum' value='228899'>
