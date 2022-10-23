@@ -11,6 +11,8 @@ hot-water-comfort-mode-47041  | ECONOMY
 
 The program forwards UDP datagrams from NIBE, and takes data requests from MQTT. The topic is the name prefixed, and the value JSON-encoded in the payload.
 
+The climate unit can also be configured in its logging function to continously publish a set of variables on a separate topic. See [nibe-log-set](https://github.com/per42/nibe-log-set) for configuration.
+
 
 ## NIBE serial interface
 

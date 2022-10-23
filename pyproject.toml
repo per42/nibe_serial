@@ -10,3 +10,9 @@ license = { file = "LICENSE" }
 classifiers = ["License :: OSI Approved :: MIT License"]
 dynamic = ["version", "description"]
 dependencies = ["paho-mqtt ==1.6.1", "nibe ==0.4.0"]
+
+[project.urls]
+Source = "https://github.com/per42/nibe_serial"
+
+[project.scripts]
+nibe_serial = "nibe_serial:main"

@@ -4,14 +4,14 @@ Requests data items to be read or written, and forwards the read data.
 
 The program forwards UDP datagrams from Nibe, and takes data requests from MQTT.
 """
-__version__ = "1.0.0"
+__version__ = "2.0.0"
 
 from argparse import ArgumentParser
 from copy import copy
 from queue import Queue
 from logging import Logger, getLogger, basicConfig
 from socket import AF_INET, SOCK_DGRAM, socket
-from typing import Callable, Optional, TypedDict, Union
+from typing import Callable, Mapping, Optional, Tuple, TypedDict, Union
 from json import loads, dumps
 
 from paho.mqtt.client import Client, MQTTMessage
@@ -31,7 +31,7 @@ def main() -> None:
     parser.add_argument(
         "--mqtt-topic",
         default="nibe",
-        help="root topic; subscribes to MQTT_TOPIC/req/#, publishes on MQTT_TOPIC/req/{name}, default=%(default)s",
+        help="root topic; subscribes to MQTT_TOPIC/req/#, publishes on MQTT_TOPIC/req/{name}, MQTT_TOPIC/data, default=%(default)s",
     )
     parser.add_argument(
         "--nibe-port",
@@ -71,15 +71,25 @@ def main() -> None:
     mqtt.connect(args.mqtt_host, args.mqtt_port)
     mqtt.loop_start()
 
-    def on_data(name: str, value: Value) -> None:
-        getLogger("DATA").info(f"{name}: {value}")
+    def on_res(name: str, value: Value) -> None:
+        getLogger("RES").info(f"{name}: {value}")
 
         mqtt.publish(f"{args.mqtt_topic}/res/{name}", dumps(value), 2)
 
         if name == "alarm-45001" and value == 251:
             req_q.put({"name": "alarm-reset-45171", "value": 1})
 
-    nibe = NibeSerial(args.nibe_model, req_q, on_data, getLogger("Nibe"))
+    def on_data(data: Mapping[str, Value]) -> None:
+        getLogger("DATA").info(
+            ", ".join([f"{name}: {value}" for name, value in data.items()])
+        )
+
+        mqtt.publish(f"{args.mqtt_topic}/data", dumps(data), 0)
+
+        if "alarm-45001" in data and data["alarm-45001"] == 251:
+            req_q.put({"name": "alarm-reset-45171", "value": 1})
+
+    nibe = NibeSerial(args.nibe_model, req_q, on_res, on_data, getLogger("Nibe"))
 
     udp = Udp(args.nibe_port)
 
@@ -120,8 +130,8 @@ class NibeSerial:
 
     It forwards read and write requests from a queue. Read data is sent to a callback
 
-    >>> req_q: Queue[dict] = Queue()
-    >>> nibe = NibeSerial("f370_f470", req_q, lambda *x: print(*x), getLogger("Nibe"))
+    >>> req_q: Queue[Req] = Queue()
+    >>> nibe = NibeSerial("f370_f470", req_q, lambda n, v: print(n, dumps(v)), lambda x: print("DATA", dumps(x)), getLogger("Nibe"))
 
     ACK read poll:
 
@@ -147,18 +157,27 @@ class NibeSerial:
     >>> nibe.handle_frame(bytes.fromhex("06"), lambda x: print(x.hex()))
     >>> nibe.handle_frame(bytes.fromhex("5c00206a06c1b7000044027c"), lambda x: print(x.hex()))
     06
-    hot-water-comfort-mode-47041 ECONOMY
+    hot-water-comfort-mode-47041 "ECONOMY"
+
+    Receive data:
+    >>> nibe.handle_frame(bytes.fromhex("5c00206850ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000ffff000018"), lambda x: print(x.hex()))
+    06
+    >>> nibe.handle_frame(bytes.fromhex("5c00206850449c8000ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000ffff000040"), lambda x: print(x.hex()))
+    06
+    DATA {"bt1-outdoor-temperature-40004": 12.8}
     """
 
     def __init__(
         self,
         model: str,
         req_q: Queue[Req],
-        on_data: Callable[[str, Value], None],
+        on_res: Callable[[str, Value], None],
+        on_data: Callable[[Mapping[str, Value]], None],
         logger: Logger,
     ) -> None:
         self._logger = logger
         self._req_q = req_q
+        self._on_res = on_res
         self._on_data = on_data
 
         self._heatpump = HeatPump(Model(model))
@@ -244,7 +263,11 @@ class NibeSerial:
                         respond(bytes.fromhex("06"))
 
                     if fields.cmd == "MODBUS_READ_RESP":
-                        self._on_raw_data(fields.data.coil_address, fields.data.value)
+                        self._on_res(
+                            *self._decode_raw_data(
+                                fields.data.coil_address, fields.data.value
+                            )
+                        )
 
                     elif fields.cmd == "MODBUS_WRITE_RESP":
                         self._logger.getChild("DATA").info(
@@ -252,18 +275,22 @@ class NibeSerial:
                         )
 
                     elif fields.cmd == "MODBUS_DATA_MSG":
-                        for d in fields.data:
-                            if d.coil_address != 0xFFFF:
-                                self._on_raw_data(d.coil_address, d.value)
+                        data = dict(
+                            self._decode_raw_data(d.coil_address, d.value)
+                            for d in fields.data
+                            if d.coil_address != 0xFFFF
+                        )
+                        if len(data) >= 1:
+                            self._on_data(data)
 
             except Exception as e:
                 self._logger.warning(e)
 
-    def _on_raw_data(self, address: int, value: bytes) -> None:
+    def _decode_raw_data(self, address: int, value: bytes) -> Tuple[str, Value]:
         coil = copy(self._heatpump.get_coil_by_address(address))
         coil.raw_value = value
 
-        self._on_data(coil.name, coil.value)
+        return coil.name, coil.value
 
 
 if __name__ == "__main__":
