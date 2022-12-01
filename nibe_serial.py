@@ -4,7 +4,7 @@ Requests data items to be read or written, and forwards the read data.
 
 The program forwards UDP datagrams from Nibe, and takes data requests from MQTT.
 """
-__version__ = "2.0.0"
+__version__ = "2.1.0"
 
 from argparse import ArgumentParser
 from copy import copy
@@ -17,6 +17,7 @@ from json import loads, dumps
 from paho.mqtt.client import Client, MQTTMessage
 from nibe.connection.nibegw import Response, ReadRequest, WriteRequest
 from nibe.heatpump import HeatPump, Model
+from construct import StreamError
 
 
 def main() -> None:
@@ -57,13 +58,18 @@ def main() -> None:
         client.subscribe(f"{args.mqtt_topic}/req/#", 2)
 
     def on_message(client: Client, userdata, msg: MQTTMessage) -> None:
-        req: Req = {"name": msg.topic.split("/")[-1]}
-        if len(msg.payload) != 0:
-            req["value"] = loads(msg.payload)
+        try:
+            req: Req = {"name": msg.topic.split("/")[-1]}
+            if len(msg.payload) != 0:
+                req["value"] = loads(msg.payload)
 
-        getLogger("REQ").info(req)
+            getLogger("REQ").info(req)
 
-        req_q.put(req)
+            req_q.put(req)
+        except Exception as e:
+            getLogger("REQ").warning(
+                "Parsing MQTT message %s:%s failed: %s", msg.topic, msg.payload, e
+            )
 
     mqtt = Client()
     mqtt.on_connect = on_connect
@@ -165,6 +171,9 @@ class NibeSerial:
     >>> nibe.handle_frame(bytes.fromhex("5c00206850449c8000ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000ffff000040"), lambda x: print(x.hex()))
     06
     DATA {"bt1-outdoor-temperature-40004": 12.8}
+    >>> nibe.handle_frame(bytes.fromhex("5c00206851c9af0000449cfbff599cad004e9cf4004d9cfb0001a8d100489cc8004c9cc4000ab900004ca800004ea81400c4b70802c8b74402aba90100a3a93c002ca400002da400005ba400005c5ca40000ffff00003d"), lambda x: print(x.hex()))
+    06
+    DATA {"alarm-45001": 0, "bt1-outdoor-temperature-40004": -0.5, "bt20-exhaust-air-temp-1-40025": 17.3, "bt6-hw-load-40014": 24.4, "bt7-hw-top-40013": 25.1, "calc-supply-s1-43009": 20.9, "bt2-supply-temp-s1-40008": 20.0, "eb100-ep14-bt3-return-temp-40012": 19.6, "allow-additive-heating-47370": "OFF", "int-el-add-power-43084": 0.0, "prio-43086": "HOT WATER", "start-temperature-hw-normal-47044": 52.0, "stop-temperature-hw-normal-47048": 58.0, "cpr-status-ep14-43435": "ON", "compressor-state-ep14-43427": "RUNNING", "aa23-be5-energy-1-42028": 0.0, "aa23-be5-eme20-total-energy-42075": 0.0}
     """
 
     def __init__(
@@ -275,16 +284,28 @@ class NibeSerial:
                         )
 
                     elif fields.cmd == "MODBUS_DATA_MSG":
-                        data = dict(
-                            self._decode_raw_data(d.coil_address, d.value)
-                            for d in fields.data
-                            if d.coil_address != 0xFFFF
-                        )
+                        di = iter(fields.data)
+                        data = {}
+
+                        for d in di:
+                            if d.coil_address != 0xFFFF:
+                                try:
+                                    k, v = self._decode_raw_data(
+                                        d.coil_address, d.value
+                                    )
+                                except StreamError:
+                                    d2 = next(di)
+                                    assert d2.coil_address == d.coil_address + 1
+                                    k, v = self._decode_raw_data(
+                                        d.coil_address, d.value + d2.value
+                                    )
+                                data[k] = v
+
                         if len(data) >= 1:
                             self._on_data(data)
 
             except Exception as e:
-                self._logger.warning(e)
+                self._logger.warning(f"{e}: {payload.hex()}")
 
     def _decode_raw_data(self, address: int, value: bytes) -> Tuple[str, Value]:
         coil = copy(self._heatpump.get_coil_by_address(address))
